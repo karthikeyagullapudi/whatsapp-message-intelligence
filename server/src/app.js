@@ -34,8 +34,8 @@ export function createApp(deps = {}) {
   app.get('/api/health', (_req, res) => {
     const db = isDbConnected();
     const whatsapp = deps.whatsappService?.getState() ?? 'not_started';
-    const worker = deps.worker?.isRunning?.() ?? false;
-    res.status(db ? 200 : 503).json({ ok: db, db: db ? 'up' : 'down', whatsapp, worker });
+    const ai = deps.getAiStatus?.() ?? { status: 'not_started' };
+    res.status(db ? 200 : 503).json({ ok: db, db: db ? 'up' : 'down', whatsapp, ai });
   });
 
   if (deps.whatsappService) app.use('/api/whatsapp', whatsappRoutes(deps.whatsappService));

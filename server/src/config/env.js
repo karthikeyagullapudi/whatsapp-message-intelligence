@@ -21,6 +21,10 @@ const EnvSchema = z.object({
   GEMINI_API_KEY: z.string().default(''),
   AI_MODEL: z.string().default('gemini-3.5-flash-lite'),
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  AI_MAX_RPM: z.coerce.number().int().min(1).default(10),
+  AI_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(2),
+  AI_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+  APP_TIMEZONE: z.string().default('Asia/Kolkata'),
 
   CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
 
