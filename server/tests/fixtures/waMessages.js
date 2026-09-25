@@ -10,8 +10,9 @@ export function fakeMessage(overrides = {}) {
   counter += 1;
   const fromMe = overrides.fromMe ?? false;
   const chatId = overrides.chatId ?? GROUP_ID;
+  const key = overrides.key ?? `MSG${counter}`;
   return {
-    id: { _serialized: overrides.id ?? `false_${chatId}_MSG${counter}_${RAVI}` },
+    id: { fromMe, remote: chatId, id: key, participant: fromMe ? undefined : RAVI, _serialized: `${fromMe}_${chatId}_${key}` },
     type: 'chat',
     body: 'Pump 3 at Block B is leaking',
     timestamp: 1790000000 + counter,

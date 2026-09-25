@@ -18,6 +18,34 @@ const IGNORED_TYPES = new Set([
   'revoked',
 ]);
 
+const serialize = (wid) => (wid && typeof wid === 'object' ? wid._serialized : wid) || null;
+
+// Stable dedupe key for a message: "<chatId>_<messageId>".
+//
+// We do NOT use msg.id._serialized: with WhatsApp's newer "LID" ids the library
+// rebuilds msg.id as a plain object and _serialized is lost (it came back null
+// on real messages). The chat id + WhatsApp's own message id are always present
+// and unique, and they are the same whether the message arrives live or via backfill.
+export function getWaMessageId(msg) {
+  const remote = serialize(msg.id?.remote) ?? getChatId(msg);
+  const key = msg.id?.id;
+  if (!remote || !key) throw new Error('Message has no usable id, refusing to store it');
+  return `${remote}_${key}`;
+}
+
+// whatsapp-web.js methods such as msg.downloadMedia() look the message up by
+// msg.id._serialized. When the library lost it (see above) they fail with a
+// cryptic error, so we rebuild it in WhatsApp's own key format:
+// "<fromMe>_<chatId>_<messageId>[_<participant>]".
+export function ensureSerializedId(msg) {
+  if (!msg.id || msg.id._serialized) return msg;
+  const parts = [String(Boolean(msg.id.fromMe)), serialize(msg.id.remote), msg.id.id];
+  const participant = serialize(msg.id.participant);
+  if (participant) parts.push(participant);
+  msg.id._serialized = parts.join('_');
+  return msg;
+}
+
 // For our own messages `from` is our number and `to` is the chat;
 // for everyone else's, `from` is the chat.
 export function getChatId(msg) {
@@ -45,7 +73,7 @@ export function getSenderId(msg) {
 // Small, JSON-safe copy of the original payload, kept for auditing/debugging.
 export function pickRaw(msg) {
   return {
-    id: msg.id?._serialized,
+    id: msg.id ? { ...msg.id, remote: serialize(msg.id.remote), participant: serialize(msg.id.participant) } : null,
     type: msg.type,
     from: msg.from,
     to: msg.to,
@@ -64,7 +92,7 @@ export function mapMessage(msg, { groupName = null, senderName = null, source = 
   const unsupported = type === 'unsupported';
 
   return {
-    waMessageId: msg.id._serialized,
+    waMessageId: getWaMessageId(msg),
     groupId: getChatId(msg),
     groupName,
     senderId: getSenderId(msg),

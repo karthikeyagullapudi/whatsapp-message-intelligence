@@ -1,5 +1,5 @@
 import { withTimeout } from '../../utils/retry.js';
-import { computeContentHash, isFromGroup, mapMessage, shouldIgnore } from './whatsapp.mapper.js';
+import { computeContentHash, ensureSerializedId, getWaMessageId, isFromGroup, mapMessage, shouldIgnore } from './whatsapp.mapper.js';
 
 const TEN_MINUTES = 10 * 60 * 1000;
 
@@ -41,13 +41,13 @@ export function createMessageListener({
 
     // 1. Hard duplicate: this exact WhatsApp message is already stored.
     //    Checked first so a redelivered image is not downloaded again.
-    if (await repository.exists(msg.id._serialized)) return 'duplicate';
+    if (await repository.exists(getWaMessageId(msg))) return 'duplicate';
 
     const doc = mapMessage(msg, { groupName: group.name, senderName: await resolveSenderName(msg), source });
 
     if (doc.type === 'image') {
       // If the download fails we still keep the message (and its caption).
-      doc.media = await downloadImage(msg);
+      doc.media = await downloadImage(ensureSerializedId(msg));
       if (doc.media.error) logger.warn({ waMessageId: doc.waMessageId, err: doc.media.error }, 'Image download failed');
     }
 
@@ -92,7 +92,7 @@ export function createMessageListener({
       try {
         return await handle(msg, options);
       } catch (err) {
-        logger.error({ err, waMessageId: msg?.id?._serialized }, 'Failed to save message');
+        logger.error({ err, waType: msg?.type, from: msg?.from }, 'Failed to save message');
         return 'error';
       }
     },

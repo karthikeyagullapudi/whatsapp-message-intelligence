@@ -59,10 +59,15 @@ describe('message dedupe', () => {
     expect(await listener.handle(again, { group })).toBe('soft_duplicate');
     expect(await listener.handle(later, { group })).toBe('inserted'); // outside the window
 
-    const original = await Message.findOne({ waMessageId: first.id._serialized });
-    const dup = await Message.findOne({ waMessageId: again.id._serialized });
+    const original = await Message.findOne({ body: first.body });
+    const dup = await Message.findOne({ body: again.body });
     expect(dup.duplicateOf.toString()).toBe(original._id.toString());
     expect(dup.processing).toMatchObject({ status: 'skipped', skipReason: 'duplicate' });
+  });
+
+  it('never stores a message without an id (would block all later messages)', async () => {
+    expect(await listener.handle(fakeMessage({ id: { remote: GROUP_ID } }), { group })).toBe('error');
+    expect(await Message.countDocuments({ waMessageId: null })).toBe(0);
   });
 
   it('ignores messages from other chats', async () => {
@@ -87,12 +92,12 @@ describe('message dedupe', () => {
     await listener.handle(ok, { group });
     await listener.handle(broken, { group });
 
-    const saved = await Message.findOne({ waMessageId: ok.id._serialized }).lean();
+    const saved = await Message.findOne({ body: 'crack' }).lean();
     expect(saved.media).toMatchObject({ mimetype: 'image/png', size: Buffer.from(PNG_BASE64, 'base64').length });
     expect(saved.media.path).toBe(`${saved.media.sha256}.png`);
     await expect(fs.access(path.join(mediaDir, saved.media.path))).resolves.toBeUndefined();
 
-    const failed = await Message.findOne({ waMessageId: broken.id._serialized }).lean();
+    const failed = await Message.findOne({ body: 'second photo' }).lean();
     expect(failed.media.error).toBe('network down');
     expect(failed.processing.status).toBe('pending'); // caption can still be classified
   });

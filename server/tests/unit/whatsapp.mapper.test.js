@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeContentHash,
+  ensureSerializedId,
   getChatId,
+  getWaMessageId,
   isFromGroup,
   mapMessage,
   shouldIgnore,
@@ -14,7 +16,7 @@ describe('whatsapp.mapper', () => {
     const doc = mapMessage(msg, { groupName: 'Site Ops' });
 
     expect(doc).toMatchObject({
-      waMessageId: msg.id._serialized,
+      waMessageId: `${GROUP_ID}_${msg.id.id}`,
       groupId: GROUP_ID,
       groupName: 'Site Ops',
       senderId: RAVI,
@@ -44,6 +46,19 @@ describe('whatsapp.mapper', () => {
     const mine = fakeMessage({ fromMe: true });
     expect(getChatId(mine)).toBe(GROUP_ID);
     expect(mapMessage(mine).senderId).toBe(ME);
+  });
+
+  it('builds a stable id even when the library drops id._serialized (LID ids)', () => {
+    const msg = fakeMessage({ key: 'ABC123' });
+    const lidStyle = { ...msg, id: { fromMe: true, remote: { _serialized: GROUP_ID }, id: 'ABC123' } };
+    expect(getWaMessageId(msg)).toBe(`${GROUP_ID}_ABC123`);
+    expect(getWaMessageId(lidStyle)).toBe(`${GROUP_ID}_ABC123`); // same message, same key
+    expect(() => getWaMessageId({ ...msg, id: {} })).toThrow(/no usable id/);
+  });
+
+  it('restores id._serialized so library calls like downloadMedia() work', () => {
+    const msg = { id: { fromMe: false, remote: { _serialized: GROUP_ID }, id: 'X1', participant: { _serialized: RAVI } } };
+    expect(ensureSerializedId(msg).id._serialized).toBe(`false_${GROUP_ID}_X1_${RAVI}`);
   });
 
   it('only accepts messages from the selected group', () => {
