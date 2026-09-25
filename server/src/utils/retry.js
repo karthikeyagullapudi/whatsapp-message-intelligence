@@ -19,3 +19,13 @@ export async function retry(fn, { retries = 5, base = 1000, max = 30000, onError
   }
   throw lastError;
 }
+
+// Rejects if `promise` does not settle within `ms`. Used around WhatsApp calls
+// that can hang forever when the browser is in a bad state.
+export function withTimeout(promise, ms, label = 'operation') {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}

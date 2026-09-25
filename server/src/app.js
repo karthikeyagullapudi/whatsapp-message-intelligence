@@ -7,6 +7,7 @@ import { logger } from './utils/logger.js';
 import { isDbConnected } from './config/db.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { whatsappRoutes } from './modules/whatsapp/whatsapp.routes.js';
 
 // Builds the Express app without calling listen(), so tests can import it
 // and hit it with supertest without opening a real port.
@@ -32,10 +33,12 @@ export function createApp(deps = {}) {
 
   app.get('/api/health', (_req, res) => {
     const db = isDbConnected();
-    const whatsapp = deps.whatsapp?.getState?.() ?? 'not_started';
+    const whatsapp = deps.whatsappService?.getState() ?? 'not_started';
     const worker = deps.worker?.isRunning?.() ?? false;
     res.status(db ? 200 : 503).json({ ok: db, db: db ? 'up' : 'down', whatsapp, worker });
   });
+
+  if (deps.whatsappService) app.use('/api/whatsapp', whatsappRoutes(deps.whatsappService));
 
   app.use(notFound);
   app.use(errorHandler);

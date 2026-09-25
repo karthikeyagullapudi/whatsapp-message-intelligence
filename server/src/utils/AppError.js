@@ -21,6 +21,10 @@ export class AppError extends Error {
     return new AppError(409, 'CONFLICT', message);
   }
 
+  static badGateway(message) {
+    return new AppError(502, 'UPSTREAM_ERROR', message);
+  }
+
   static unavailable(message) {
     return new AppError(503, 'SERVICE_UNAVAILABLE', message);
   }

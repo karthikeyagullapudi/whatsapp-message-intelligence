@@ -26,6 +26,13 @@ const EnvSchema = z.object({
 
   WA_CLIENT_ID: z.string().default('main'),
   WA_BACKUP_SYNC_MS: z.coerce.number().int().min(60000).default(300000),
+  WA_HEADLESS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  WA_BACKFILL_LIMIT: z.coerce.number().int().min(0).max(500).default(50),
+  // Optional: use an installed Chrome instead of the one Puppeteer downloaded.
+  PUPPETEER_EXECUTABLE_PATH: z.string().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
