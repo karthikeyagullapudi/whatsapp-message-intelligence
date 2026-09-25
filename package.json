@@ -1,0 +1,23 @@
+{
+  "name": "whatsapp-intelligence",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Listens to one WhatsApp group via WhatsApp Web, classifies messages with AI, and lets a human review them.",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "test": "npm run test -w server",
+    "db:up": "docker compose up -d mongo",
+    "db:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "prettier": "^3.9.9"
+  }
+}
