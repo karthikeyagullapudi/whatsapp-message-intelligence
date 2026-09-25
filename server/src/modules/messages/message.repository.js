@@ -1,5 +1,14 @@
 import { Message } from './message.model.js';
 
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// The category a message "really" has: the reviewer's if reviewed, else the AI's.
+function categoryFilter(category) {
+  return {
+    $or: [{ 'review.category': category }, { review: null, 'ai.category': category }],
+  };
+}
+
 // Every MongoDB query for messages lives here, so services never build queries.
 export const messageRepository = {
   async exists(waMessageId) {
@@ -38,6 +47,43 @@ export const messageRepository = {
 
   findById(id) {
     return Message.findById(id).lean();
+  },
+
+  async list({ status, category, q, page = 1, limit = 20, sort = 'newest' } = {}) {
+    const filter = {};
+    const and = [];
+    if (status) filter['processing.status'] = status;
+    if (category) and.push(categoryFilter(category));
+    if (q) {
+      const rx = new RegExp(escapeRegex(q), 'i');
+      and.push({ $or: [{ body: rx }, { senderName: rx }, { 'ai.summary': rx }, { 'review.summary': rx }] });
+    }
+    if (and.length) filter.$and = and;
+
+    const [items, total] = await Promise.all([
+      Message.find(filter)
+        .sort({ timestamp: sort === 'oldest' ? 1 : -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .select('-raw')
+        .lean(),
+      Message.countDocuments(filter),
+    ]);
+    return { items, total, page, limit, pages: Math.max(1, Math.ceil(total / limit)) };
+  },
+
+  async countByStatus() {
+    const rows = await Message.aggregate([{ $group: { _id: '$processing.status', count: { $sum: 1 } } }]);
+    return Object.fromEntries(rows.map((r) => [r._id, r.count]));
+  },
+
+  // Only updates if the message is still in one of `fromStatuses`, so a human
+  // action and the worker can never overwrite each other.
+  updateIfStatus(id, fromStatuses, update) {
+    return Message.findOneAndUpdate({ _id: id, 'processing.status': { $in: fromStatuses } }, update, {
+      returnDocument: 'after',
+      lean: true,
+    });
   },
 
   // ---- AI job queue (MongoDB is the queue: processing.status is the job state) ----

@@ -15,6 +15,8 @@ import { createMessageListener } from './modules/whatsapp/whatsapp.listener.js';
 import { createWhatsAppService } from './modules/whatsapp/whatsapp.service.js';
 import { createGeminiProvider } from './modules/ai/ai.provider.js';
 import { createAiWorker } from './modules/ai/ai.worker.js';
+import { createMessageService } from './modules/messages/message.service.js';
+import { createReviewService } from './modules/review/review.service.js';
 
 // Boot order: database → wiring → HTTP + sockets → WhatsApp → AI worker.
 // All objects are created here and passed in (dependency injection), so every
@@ -76,7 +78,10 @@ async function main() {
   let aiStatus = { status: 'starting', model: env.AI_MODEL };
   const getAiStatus = () => ({ ...aiStatus, running: worker.isRunning() });
 
-  const app = createApp({ whatsappService, getAiStatus });
+  const messageService = createMessageService({ repository: messageRepository, mediaStorage, emit });
+  const reviewService = createReviewService({ repository: messageRepository, emit });
+
+  const app = createApp({ whatsappService, messageService, reviewService, getAiStatus });
   const server = http.createServer(app);
   initSocket(server, {
     origin: env.CLIENT_ORIGIN,

@@ -8,6 +8,8 @@ import { isDbConnected } from './config/db.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { whatsappRoutes } from './modules/whatsapp/whatsapp.routes.js';
+import { messageRoutes } from './modules/messages/message.routes.js';
+import { reviewRoutes } from './modules/review/review.routes.js';
 
 // Builds the Express app without calling listen(), so tests can import it
 // and hit it with supertest without opening a real port.
@@ -39,6 +41,8 @@ export function createApp(deps = {}) {
   });
 
   if (deps.whatsappService) app.use('/api/whatsapp', whatsappRoutes(deps.whatsappService));
+  if (deps.reviewService) app.use('/api/messages', reviewRoutes(deps.reviewService));
+  if (deps.messageService) app.use('/api/messages', messageRoutes(deps.messageService));
 
   app.use(notFound);
   app.use(errorHandler);
