@@ -11,7 +11,8 @@
     "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "test": "npm run test -w server",
     "db:up": "docker compose up -d mongo",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "eval": "npm run eval -w server"
   },
   "engines": {
     "node": ">=20"
