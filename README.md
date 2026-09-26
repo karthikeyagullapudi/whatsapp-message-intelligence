@@ -39,7 +39,7 @@ Then:
 Other commands:
 
 ```bash
-npm test          # 43 unit + integration tests (in-memory MongoDB, no WhatsApp or API key needed)
+npm test          # 44 unit + integration tests (in-memory MongoDB, no WhatsApp or API key needed)
 npm run eval      # runs 20 labelled messages through the real model and prints accuracy
 npm run db:down   # stop MongoDB
 VITE_MOCK=1 npm run dev -w client   # UI only, with 25 fixture messages; no server, WhatsApp or API key needed

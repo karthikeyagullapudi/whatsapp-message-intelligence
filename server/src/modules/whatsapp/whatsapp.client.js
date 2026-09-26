@@ -253,6 +253,16 @@ export class WhatsAppConnection extends EventEmitter {
         this.#restart(gen, 'Browser closed unexpectedly', WA_STATES.DISCONNECTED),
       );
 
+      // After a restart the login came from a saved backup, but RemoteAuth only
+      // raises 'remote_session_saved' on the very first save. Read the backup
+      // date so the UI does not say "saving…" when a copy already exists.
+      this.store
+        .lastSavedAt?.({ session: this.sessionName })
+        .then((savedAt) => {
+          if (savedAt && gen === this.#generation && !this.#status.sessionSavedAt) this.#setStatus({ sessionSavedAt: savedAt });
+        })
+        .catch(() => {});
+
       this.emit('ready');
     });
 

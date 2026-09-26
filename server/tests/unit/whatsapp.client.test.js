@@ -23,7 +23,8 @@ const logger = { info() {}, warn() {}, error() {} };
 
 function setup(clientOptions = []) {
   const clients = [];
-  const store = { delete: vi.fn(async () => {}) };
+  const savedAt = new Date('2026-09-25T10:00:00Z');
+  const store = { delete: vi.fn(async () => {}), lastSavedAt: vi.fn(async () => savedAt) };
   const connection = new WhatsAppConnection({
     store,
     clientId: 'test',
@@ -95,6 +96,15 @@ describe('WhatsAppConnection', () => {
     clients[0].emit('ready');
     await flush();
     expect(connection.getState()).toBe('initializing');
+  });
+
+  it('shows the existing session backup date after a restart', async () => {
+    const { connection, clients } = setup();
+    connection.start();
+    await flush();
+    clients[0].emit('ready');
+    await flush();
+    expect(connection.getStatus().sessionSavedAt).toEqual(new Date('2026-09-25T10:00:00Z'));
   });
 
   it('clears the saved session on auth failure', async () => {

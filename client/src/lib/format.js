@@ -21,4 +21,6 @@ export function absoluteTime(value) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export const phoneFromId = (id) => id?.split('@')[0] ?? '';
+// Only real phone-number ids ("919845012345@c.us"). WhatsApp's newer "@lid" ids
+// are internal numbers, not phone numbers, so they are not shown.
+export const phoneFromId = (id) => (id?.endsWith('@c.us') ? id.split('@')[0] : '');

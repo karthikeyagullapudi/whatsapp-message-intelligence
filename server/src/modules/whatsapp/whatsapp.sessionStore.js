@@ -44,6 +44,17 @@ export class MongoSessionStore {
     await Promise.all(files.slice(1).map((f) => bucket.delete(f._id)));
   }
 
+  // When the newest backup was uploaded (null if there is none). Used to show
+  // "session saved" after a restart: RemoteAuth only announces the first save.
+  async lastSavedAt({ session }) {
+    const [newest] = await this.#bucket(session)
+      .find({ filename: this.#zipName(session) })
+      .sort({ uploadDate: -1 })
+      .limit(1)
+      .toArray();
+    return newest?.uploadDate ?? null;
+  }
+
   async extract({ session, path: destination }) {
     // By default GridFS returns the newest revision with this name.
     await pipeline(

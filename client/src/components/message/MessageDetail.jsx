@@ -24,7 +24,7 @@ export default function MessageDetail({ message, draft, setDraft, summaryRef, sh
       <div className={styles.scroll}>
         <header className={styles.header}>
           <div className={styles.who}>
-            <span className={styles.sender}>{message.senderName ?? phoneFromId(message.senderId)}</span>
+            <span className={styles.sender}>{message.senderName || phoneFromId(message.senderId) || 'Unknown sender'}</span>
             <span className={`mono ${styles.meta}`}>{phoneFromId(message.senderId)}</span>
           </div>
           <div className={styles.metaRow}>
