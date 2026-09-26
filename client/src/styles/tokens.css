@@ -1,0 +1,87 @@
+/* Design tokens. Components use these variables only, never raw colours. */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg: #0a0a0b;
+  --surface: #111113;
+  --raised: #17171a;
+  --hover: #1c1c20;
+  --border: #232327;
+  --border-strong: #2e2e33;
+  --flash: #26262c; /* row highlight for new/updated items (neutral, not accent) */
+  --overlay: rgba(0, 0, 0, 0.6);
+  --overlay-strong: rgba(0, 0, 0, 0.85);
+  --qr-bg: #ffffff; /* QR codes must sit on white to scan */
+  --kbd-on-accent-bg: rgba(0, 0, 0, 0.15);
+  --kbd-on-accent-border: rgba(0, 0, 0, 0.2);
+
+  /* Text */
+  --text: #ededef;
+  --text-secondary: #a1a1aa;
+  --text-muted: #6b6b74;
+  --text-on-accent: #0a0a0b;
+
+  /* Accent: primary actions, focus, "connected". Nothing else is green. */
+  --accent: #3ecf8e;
+  --accent-hover: #5ad9a0;
+  --accent-soft: rgba(62, 207, 142, 0.12);
+
+  /* Semantic */
+  --danger: #f2555a;
+  --danger-muted: #c9585c;
+  --danger-soft: rgba(242, 85, 90, 0.12);
+  --warning: #f5a524;
+  --warning-soft: rgba(245, 165, 36, 0.12);
+  --info: #5b9bf8;
+
+  /* Categories (dot + label only) */
+  --cat-incident: #f2555a;
+  --cat-change-request: #f5a524;
+  --cat-question: #5b9bf8;
+  --cat-resource-update: #a78bfa;
+  --cat-routine-update: #8b8b94;
+  --cat-irrelevant: #4a4a52;
+
+  /* Type */
+  --font-sans: 'Geist Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --leading: 1.5;
+
+  /* 4px grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  --radius-sm: 6px; /* inputs, buttons */
+  --radius-md: 8px; /* panels */
+
+  /* Only floating layers get a shadow */
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-strong);
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration: 160ms;
+  --duration-slow: 180ms;
+
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+
+  /* Layout */
+  --sidebar-width: 220px;
+  --sidebar-collapsed: 56px;
+  --topbar-height: 44px;
+  --control-height: 28px;
+  --row-height: 36px;
+}

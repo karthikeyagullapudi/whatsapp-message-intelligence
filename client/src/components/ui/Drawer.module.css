@@ -1,0 +1,67 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+  animation: fade var(--duration) var(--ease);
+}
+.panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  animation: slide var(--duration-slow) var(--ease);
+}
+.panel:focus-visible {
+  outline: none;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-height);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+.title {
+  font-size: var(--text-md);
+}
+.close {
+  display: inline-flex;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+@keyframes slide {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}

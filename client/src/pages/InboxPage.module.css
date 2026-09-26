@@ -1,0 +1,130 @@
+.page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+.listPane {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: 380px;
+  border-right: 1px solid var(--border);
+}
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  flex: none;
+}
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px var(--space-4) 10px 14px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease), opacity var(--duration) var(--ease),
+    transform var(--duration) var(--ease);
+}
+.row:hover {
+  background: var(--hover);
+}
+.row:focus-visible {
+  outline-offset: -2px;
+}
+.selected,
+.selected:hover {
+  border-left-color: var(--accent);
+  background: var(--raised);
+}
+.leaving {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+.rowTop,
+.rowBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.rowBottom {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+}
+.sender {
+  color: var(--text);
+  font-weight: var(--weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.time {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  flex: none;
+}
+.preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.previewIcon {
+  flex: none;
+  color: var(--text-muted);
+}
+.skeletonRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.detailPane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.detailSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+.position {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.error {
+  padding: var(--space-3) var(--space-4);
+  color: var(--danger-muted);
+  font-size: var(--text-xs);
+}
+@media (max-width: 1100px) {
+  .listPane {
+    width: 320px;
+  }
+}

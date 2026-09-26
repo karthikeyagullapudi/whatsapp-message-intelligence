@@ -13,7 +13,7 @@ flowchart LR
   G --> V[Zod validation<br/>+ review rules]
   V --> DB
   DB --> API[Express API + Socket.IO]
-  API --> UI[React: Connect · Messages · Review]
+  API --> UI[React: Inbox · All messages · Connection]
   UI -->|correct + approve| API
 ```
 
@@ -31,17 +31,18 @@ npm run dev                          # API on :4000, UI on http://localhost:5173
 
 Then:
 
-1. **Connect:** scan the QR code with WhatsApp → Settings → Linked devices. Wait for "Session backed up" (about 1 minute on the first login). After that, restarting the server does not ask for a QR again.
-2. **Pick a group:** choose it from the dropdown and click Save. From now on only that group is captured.
-3. **Send messages** in the group. They appear on the **Messages** page within seconds, classified.
-4. **Review:** Incidents, Change Requests, high-priority, low-confidence and invalid results wait on the **Review** page. Correct the fields and click Approve.
+1. **Connection:** scan the QR code with WhatsApp → Settings → Linked devices → Link a device. Wait until it says the session is saved (about 1 minute on the first login). After that, restarting the server does not ask for a QR again.
+2. **Pick a group:** search for it in the group picker on the same page. From now on only that group is captured.
+3. **Send messages** in the group. They appear on **All messages** within seconds, classified.
+4. **Inbox:** Incidents, Change Requests, high-priority, low-confidence and invalid results wait in the **Inbox**. Correct the fields and approve (keyboard: J/K to move, 1–6 category, A approve, S skip, ? for all shortcuts, ⌘K command palette).
 
 Other commands:
 
 ```bash
-npm test          # 42 unit + integration tests (in-memory MongoDB, no WhatsApp or API key needed)
+npm test          # 43 unit + integration tests (in-memory MongoDB, no WhatsApp or API key needed)
 npm run eval      # runs 20 labelled messages through the real model and prints accuracy
 npm run db:down   # stop MongoDB
+VITE_MOCK=1 npm run dev -w client   # UI only, with 25 fixture messages; no server, WhatsApp or API key needed
 ```
 
 ## What it does
@@ -74,7 +75,7 @@ server/src/
   middleware/                 validate (express-validator + zod), errorHandler, notFound
 server/tests/                 unit (mapper, validator, connection) + integration (dedupe, worker, review API)
 server/eval/                  labelled dataset + accuracy script
-client/src/                   pages (Connect, Messages, Review), components, hooks, api
+client/src/                   pages (Inbox, All messages, Connection), components (ui, layout, message), hooks, api (+ mock), styles/tokens.css
 docs/                         the documents below
 ```
 
@@ -86,6 +87,7 @@ Each module is split into **routes → controller → service → repository/mod
 - [WhatsApp integration](docs/WHATSAPP_INTEGRATION.md): why whatsapp-web.js, sessions, reconnects, dedupe, and the library issues found and worked around
 - [AI approach and model choice](docs/AI_APPROACH.md): model comparison, schema, prompt, validation, review rules, eval results
 - [Limitations and production risks](docs/LIMITATIONS_AND_RISKS.md)
+- [Interview guide](docs/interview-guide.html): one self-contained page (open it in a browser) with the full walkthrough, a "where is what" finder, change drills and practice questions
 
 ## Configuration
 

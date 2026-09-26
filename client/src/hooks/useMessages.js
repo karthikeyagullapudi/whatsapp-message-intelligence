@@ -2,51 +2,118 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { messagesApi } from '../api/messages.js';
 import { useSocketEvent } from './useSocket.js';
 
-// Loads a page of messages for the given filters and reloads (debounced)
-// whenever the server says a message was created or changed.
-export function useMessages(params) {
-  const [data, setData] = useState({ items: [], total: 0, page: 1, pages: 1 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const matches = (m, { groupId, status, category }) =>
+  (!groupId || m.groupId === groupId) &&
+  (!status || m.processing?.status === status) &&
+  (!category || (m.review?.category ?? m.ai?.category) === category);
+
+// List state for one set of filters: first page, "load more", live updates
+// from the socket, and a per-row `flash` token so new/changed rows can highlight.
+// enabled=false (e.g. no group selected) → no requests, empty list.
+export function useMessages(params, { pageSize = 50, enabled = true } = {}) {
   const key = JSON.stringify(params);
-  const timer = useRef(null);
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
+  const [flash, setFlash] = useState({});
+  const loadedPages = useRef(1);
+  const reloadTimer = useRef(null);
+  const pendingFlash = useRef(new Set());
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  const markFlash = useCallback((id) => setFlash((f) => ({ ...f, [id]: (f[id] ?? 0) + 1 })), []);
+
+  const fetchPages = useCallback(async () => {
+    const data = await messagesApi.list({ ...JSON.parse(key), page: 1, limit: pageSize * loadedPages.current });
+    setItems(data.items);
+    setTotal(data.total);
+    setPages(Math.ceil(data.total / pageSize) || 1);
+    setError(null);
+    // Highlight rows that arrived via message:new once they are in the list.
+    pendingFlash.current.forEach((id) => data.items.some((m) => m._id === id) && markFlash(id));
+    pendingFlash.current.clear();
+  }, [key, pageSize, markFlash]);
 
   const reload = useCallback(async () => {
+    if (!enabled) {
+      // Nothing to show yet (status still loading, or no group); stay in the loading state.
+      setItems([]);
+      setTotal(0);
+      return;
+    }
     try {
-      setData(await messagesApi.list(JSON.parse(key)));
-      setError(null);
+      await fetchPages();
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [key]);
+  }, [fetchPages, enabled]);
 
   useEffect(() => {
+    loadedPages.current = 1;
     setLoading(true);
     reload();
+    return () => clearTimeout(reloadTimer.current);
   }, [reload]);
 
   const scheduleReload = useCallback(() => {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(reload, 400);
+    clearTimeout(reloadTimer.current);
+    reloadTimer.current = setTimeout(reload, 300);
   }, [reload]);
-  useEffect(() => () => clearTimeout(timer.current), []);
 
-  useSocketEvent('message:new', scheduleReload);
-  useSocketEvent('message:updated', scheduleReload);
+  async function loadMore() {
+    setLoadingMore(true);
+    loadedPages.current += 1;
+    await reload();
+    setLoadingMore(false);
+  }
 
-  return { ...data, loading, error, reload };
-}
+  useSocketEvent('message:new', (m) => {
+    pendingFlash.current.add(m._id);
+    scheduleReload();
+  });
 
-// Count of messages per status, kept live (used for the nav badge).
-export function useMessageStats() {
-  const [stats, setStats] = useState({});
-  const reload = useCallback(() => messagesApi.stats().then(setStats).catch(() => {}), []);
-  useEffect(() => {
-    reload();
-  }, [reload]);
-  useSocketEvent('message:new', reload);
-  useSocketEvent('message:updated', reload);
-  return stats;
+  useSocketEvent('message:updated', (doc) => {
+    if (itemsRef.current.some((m) => m._id === doc._id)) {
+      setItems((list) => list.map((m) => (m._id === doc._id ? doc : m)));
+      markFlash(doc._id);
+    }
+    else if (matches(doc, JSON.parse(key))) {
+      pendingFlash.current.add(doc._id);
+      scheduleReload();
+    }
+  });
+
+  // Optimistic helpers
+  const patchItem = useCallback((id, fn) => setItems((list) => list.map((m) => (m._id === id ? fn(m) : m))), []);
+  const removeItem = useCallback((id) => setItems((list) => list.filter((m) => m._id !== id)), []);
+  const restoreItem = useCallback(
+    (item, index) =>
+      setItems((list) => {
+        if (list.some((m) => m._id === item._id)) return list;
+        const next = [...list];
+        next.splice(Math.min(index, next.length), 0, item);
+        return next;
+      }),
+    [],
+  );
+
+  return {
+    items,
+    total,
+    hasMore: loadedPages.current < pages,
+    loading,
+    loadingMore,
+    error,
+    flash,
+    loadMore,
+    patchItem,
+    removeItem,
+    restoreItem,
+  };
 }

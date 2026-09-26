@@ -62,7 +62,7 @@ Defined once in [ai.schema.js](../server/src/modules/ai/ai.schema.js) (zod), whi
 
 ## Handling uncertain results
 
-A result goes to the **Review** queue if any rule fires; the reasons are stored in `ai.reviewReasons` and shown to the reviewer in plain English:
+A result goes to the review queue (the **Inbox**) if any rule fires; the reasons are stored in `ai.reviewReasons` and shown to the reviewer in plain English:
 
 | Reason | Why |
 | --- | --- |

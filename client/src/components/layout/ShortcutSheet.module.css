@@ -1,0 +1,64 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+  background: var(--overlay);
+  animation: fade var(--duration-fast) var(--ease);
+}
+.sheet {
+  width: min(560px, calc(100vw - 32px));
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  box-shadow: var(--shadow-float);
+  animation: drop var(--duration) var(--ease);
+}
+.title {
+  font-size: var(--text-md);
+  margin-bottom: var(--space-4);
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5) var(--space-8);
+}
+.group {
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+.row dd {
+  margin: 0;
+  display: flex;
+  gap: 3px;
+}
+.dash {
+  color: var(--text-muted);
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}

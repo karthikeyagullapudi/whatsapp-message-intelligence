@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { isMock } from '../api/http.js';
+import { mockBus } from '../api/mock/bus.js';
 
 // One shared connection for the whole app (Vite proxies /socket.io to the API).
-const socket = io({ autoConnect: true });
+// In mock mode the in-browser mock bus plays the same role.
+const socket = isMock ? mockBus : io({ autoConnect: true });
 
 // Subscribe to a server event for the lifetime of the component.
 export function useSocketEvent(event, handler) {
@@ -16,18 +19,9 @@ export function useSocketEvent(event, handler) {
   }, [event]);
 }
 
-// true/false: is the browser connected to our API's socket?
 export function useSocketConnected() {
   const [connected, setConnected] = useState(socket.connected);
-  useEffect(() => {
-    const on = () => setConnected(true);
-    const off = () => setConnected(false);
-    socket.on('connect', on);
-    socket.on('disconnect', off);
-    return () => {
-      socket.off('connect', on);
-      socket.off('disconnect', off);
-    };
-  }, []);
+  useSocketEvent('connect', () => setConnected(true));
+  useSocketEvent('disconnect', () => setConnected(false));
   return connected;
 }

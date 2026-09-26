@@ -12,7 +12,7 @@ The brief requires WhatsApp Web and rules out the Business API. [whatsapp-web.js
 ## Authentication and persistent session
 
 - `new Client({ authStrategy: new RemoteAuth({ store, clientId: 'main', backupSyncIntervalMs: 300000 }) })`
-- On `qr`, the QR string is converted to a PNG data URL and pushed to the Connect page over Socket.IO.
+- On `qr`, the QR string is converted to a PNG data URL and pushed to the Connection page over Socket.IO.
 - About 60 s after the first login, RemoteAuth zips the Chromium profile and our `MongoSessionStore` saves it to **MongoDB GridFS** (`remote_session_saved`); after that it is refreshed every 5 minutes.
 - On restart, the zip is restored before Chromium starts, so WhatsApp opens already logged in (about 10 s, no QR).
 - `auth_failure` → the stored session is deleted and a new QR is shown.

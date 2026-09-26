@@ -9,10 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/geist-mono": "^5.3.0",
+    "@fontsource/geist-sans": "^5.3.0",
+    "cmdk": "^1.1.1",
+    "lucide-react": "^1.48.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.1.1",

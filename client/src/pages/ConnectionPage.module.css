@@ -1,0 +1,223 @@
+.page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+.progress {
+  flex: none;
+  width: 240px;
+  padding: var(--space-6) var(--space-4);
+  border-right: 1px solid var(--border);
+}
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 40px;
+  color: var(--text-muted);
+}
+.step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 30px;
+  height: 20px;
+  width: 1px;
+  background: var(--border-strong);
+}
+.marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 11px;
+  flex: none;
+}
+.complete {
+  color: var(--text-secondary);
+}
+.complete .marker {
+  border-color: var(--text-secondary);
+  color: var(--text);
+}
+.current {
+  color: var(--text);
+}
+.current .marker {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.stepLabel {
+  font-size: var(--text-sm);
+}
+.panel {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-6) var(--space-8);
+}
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 560px;
+}
+.heading {
+  font-size: var(--text-md);
+}
+.muted {
+  color: var(--text-secondary);
+}
+.faint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.errorText {
+  color: var(--danger);
+}
+.warningText {
+  color: var(--warning);
+  font-size: var(--text-xs);
+}
+.qr {
+  align-self: flex-start;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--qr-bg); /* QR codes need a white quiet zone to scan */
+}
+.qrImage {
+  display: block;
+  animation: fade var(--duration) var(--ease);
+}
+.bar {
+  width: 320px;
+  height: 2px;
+  background: var(--border-strong);
+  overflow: hidden;
+}
+.bar span {
+  display: block;
+  height: 100%;
+  background: var(--text-secondary);
+  transition: width var(--duration-slow) var(--ease);
+}
+.account {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.accountName {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+}
+.divider {
+  height: 1px;
+  margin: var(--space-3) 0;
+  background: var(--border);
+}
+.listening {
+  color: var(--text-secondary);
+}
+.groupName {
+  color: var(--text);
+  font-weight: var(--weight-medium);
+}
+.combobox {
+  position: relative;
+  width: 360px;
+  max-width: 100%;
+}
+.comboInput {
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--text-sm);
+}
+.comboInput::placeholder {
+  color: var(--text-muted);
+}
+.options {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  box-shadow: var(--shadow-float);
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.option :global(.mono) {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.activeOption {
+  background: var(--hover);
+  color: var(--text);
+}
+.optionName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.noOptions {
+  padding: var(--space-2);
+  color: var(--text-muted);
+}
+.confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--text);
+}
+.confirm span {
+  flex: 1;
+  min-width: 220px;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}

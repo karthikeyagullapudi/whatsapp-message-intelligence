@@ -1,13 +1,14 @@
-import { http } from './http.js';
+import { http, isMock } from './http.js';
 
 const qs = (params) =>
   new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null)).toString();
 
 export const messagesApi = {
   list: (params = {}) => http(`/messages?${qs(params)}`),
-  stats: () => http('/messages/stats'),
+  stats: (params = {}) => http(`/messages/stats?${qs(params)}`),
   get: (id) => http(`/messages/${id}`),
-  review: (id, body) => http(`/messages/${id}/review`, { method: 'PATCH', body }),
+  review: (id, body, options) => http(`/messages/${id}/review`, { method: 'PATCH', body, ...options }),
   retry: (id) => http(`/messages/${id}/retry`, { method: 'POST' }),
-  mediaUrl: (id) => `/api/messages/${id}/media`,
+  // Mock fixtures carry their image inline; the real server streams it.
+  mediaUrl: (message) => (isMock ? message.media?.mockUrl : `/api/messages/${message._id}/media`),
 };

@@ -1,0 +1,33 @@
+.shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.banner {
+  flex: none;
+  padding: 6px var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: var(--text-xs);
+  animation: down var(--duration) var(--ease);
+}
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+@keyframes down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
