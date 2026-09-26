@@ -55,7 +55,7 @@ export default function Sidebar() {
   return (
     <nav className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`} aria-label="Main">
       <div className={styles.top}>
-        {!isCollapsed && <span className={styles.app}>Message intelligence</span>}
+        {!isCollapsed && <span className={styles.app}>WhatsApp Message Intelligence</span>}
         {!forced && (
           <button type="button" className={styles.iconButton} onClick={toggle} aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
             <PanelLeft size={16} strokeWidth={1.5} />

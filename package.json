@@ -1,5 +1,5 @@
 {
-  "name": "whatsapp-intelligence",
+  "name": "whatsapp-message-intelligence",
   "private": true,
   "version": "0.1.0",
   "description": "Listens to one WhatsApp group via WhatsApp Web, classifies messages with AI, and lets a human review them.",

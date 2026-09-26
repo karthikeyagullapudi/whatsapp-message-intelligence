@@ -22,7 +22,7 @@ flowchart LR
 Needs Node.js 20+, Docker, and a free Gemini API key from [aistudio.google.com](https://aistudio.google.com).
 
 ```bash
-git clone https://github.com/karthikeyagullapudi/whatsapp_group_assistant.git && cd whatsapp_group_assistant
+git clone https://github.com/karthikeyagullapudi/whatsapp-message-intelligence.git && cd whatsapp-message-intelligence
 npm install                          # also downloads Chromium for whatsapp-web.js
 cp .env.example .env                 # then set GEMINI_API_KEY in .env
 npm run db:up                        # MongoDB 7 in Docker
