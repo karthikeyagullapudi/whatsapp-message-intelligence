@@ -49,9 +49,10 @@ export const messageRepository = {
     return Message.findById(id).lean();
   },
 
-  async list({ status, category, q, page = 1, limit = 20, sort = 'newest' } = {}) {
+  async list({ groupId, status, category, q, page = 1, limit = 20, sort = 'newest' } = {}) {
     const filter = {};
     const and = [];
+    if (groupId) filter.groupId = groupId;
     if (status) filter['processing.status'] = status;
     if (category) and.push(categoryFilter(category));
     if (q) {
@@ -72,8 +73,11 @@ export const messageRepository = {
     return { items, total, page, limit, pages: Math.max(1, Math.ceil(total / limit)) };
   },
 
-  async countByStatus() {
-    const rows = await Message.aggregate([{ $group: { _id: '$processing.status', count: { $sum: 1 } } }]);
+  async countByStatus({ groupId } = {}) {
+    const rows = await Message.aggregate([
+      ...(groupId ? [{ $match: { groupId } }] : []),
+      { $group: { _id: '$processing.status', count: { $sum: 1 } } },
+    ]);
     return Object.fromEntries(rows.map((r) => [r._id, r.count]));
   },
 

@@ -99,6 +99,20 @@ describe('GET /api/messages and retry', () => {
     expect((await request(app).get('/api/messages?status=nope')).status).toBe(400);
   });
 
+  it('only returns and counts messages of the requested group (e.g. after switching account)', async () => {
+    await createMessage({ groupId: 'old@g.us' });
+    await createMessage({ groupId: 'new@g.us', processing: { status: 'pending' }, ai: null });
+
+    const list = await request(app).get('/api/messages?groupId=new@g.us');
+    expect(list.body.total).toBe(1);
+    expect(list.body.items[0].groupId).toBe('new@g.us');
+
+    const stats = await request(app).get('/api/messages/stats?groupId=new@g.us');
+    expect(stats.body).toEqual({ pending: 1 });
+
+    expect((await request(app).get('/api/messages?groupId=not-a-group')).status).toBe(400);
+  });
+
   it('retry puts a failed message back in the queue with fresh attempts', async () => {
     const msg = await createMessage({ processing: { status: 'failed', attempts: 3, lastError: 'timeout' }, ai: null });
     const res = await request(app).post(`/api/messages/${msg._id}/retry`);

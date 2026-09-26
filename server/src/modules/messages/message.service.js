@@ -10,7 +10,7 @@ export function createMessageService({ repository, mediaStorage, emit = () => {}
 
   return {
     list: (filters) => repository.list(filters),
-    stats: () => repository.countByStatus(),
+    stats: (filters) => repository.countByStatus(filters),
     get: getOrThrow,
 
     // Absolute path of the stored image, or 404.

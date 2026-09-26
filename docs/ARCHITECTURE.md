@@ -107,8 +107,8 @@ All errors use one shape: `{ "error": { "code", "message", "details?" } }`. URL 
 | GET | `/api/whatsapp/groups` | Groups of the linked account |
 | PUT | `/api/whatsapp/group` | Select the group to listen to (`{ groupId }`) |
 | POST | `/api/whatsapp/logout` | Unlink the device, delete the stored session, show a new QR |
-| GET | `/api/messages` | `status`, `category` (final: review over AI), `q`, `page`, `limit`, `sort` |
-| GET | `/api/messages/stats` | Count per status |
+| GET | `/api/messages` | `groupId`, `status`, `category` (final: review over AI), `q`, `page`, `limit`, `sort`. The UI always passes the selected group, so after a logout or group change the previous group's messages are not shown (they stay in the database) |
+| GET | `/api/messages/stats` | Count per status (optional `groupId`) |
 | GET | `/api/messages/:id` | One message with AI and review data |
 | GET | `/api/messages/:id/media` | The stored image |
 | PATCH | `/api/messages/:id/review` | Save corrections and approve (400 invalid, 404 unknown, 409 not reviewable) |

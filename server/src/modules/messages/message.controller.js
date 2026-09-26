@@ -4,8 +4,8 @@ export function createMessageController(service) {
       res.json(await service.list(req.valid?.query ?? {}));
     },
 
-    async stats(_req, res) {
-      res.json(await service.stats());
+    async stats(req, res) {
+      res.json(await service.stats(req.valid?.query ?? {}));
     },
 
     async get(req, res) {
