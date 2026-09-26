@@ -1,73 +1,61 @@
 # WhatsApp integration
 
-## Choice: whatsapp-web.js with RemoteAuth
+The brief requires WhatsApp Web and rules out the WhatsApp Business API. I used **[whatsapp-web.js](https://docs.wwebjs.dev/)**, a library that runs the real WhatsApp Web in a hidden Chrome browser. The app connects exactly like opening web.whatsapp.com on a laptop: it becomes a "linked device" on the user's phone.
 
-The brief requires WhatsApp Web and rules out the Business API. [whatsapp-web.js](https://docs.wwebjs.dev/) runs the real web.whatsapp.com in headless Chromium (Puppeteer) and exposes its events, so the app is literally a WhatsApp Web session linked as a device.
-
-| Option | Why not chosen |
+| Option | Why it was not chosen |
 | --- | --- |
-| WhatsApp Business / Cloud API | Not allowed by the brief; also cannot read normal groups |
-| [Baileys](https://github.com/whiskeysockets/Baileys) | Lighter (no browser, speaks the WebSocket protocol directly), but it re-implements the protocol instead of using WhatsApp Web, and is harder to explain and debug. A good production alternative if memory matters |
+| WhatsApp Business API | Not allowed by the brief, and it cannot read regular groups |
+| [Baileys](https://github.com/whiskeysockets/Baileys) | Lighter (no browser), but it reimplements WhatsApp's protocol instead of using WhatsApp Web. A good option to consider for production if memory use matters |
 
-## Authentication and persistent session
+## Logging in and staying logged in
 
-- `new Client({ authStrategy: new RemoteAuth({ store, clientId: 'main', backupSyncIntervalMs: 300000 }) })`
-- On `qr`, the QR string is converted to a PNG data URL and pushed to the Connection page over Socket.IO.
-- About 60 s after the first login, RemoteAuth zips the Chromium profile and our `MongoSessionStore` saves it to **MongoDB GridFS** (`remote_session_saved`); after that it is refreshed every 5 minutes.
-- On restart, the zip is restored before Chromium starts, so WhatsApp opens already logged in (about 10 s, no QR).
-- `auth_failure` → the stored session is deleted and a new QR is shown.
-- `POST /api/whatsapp/logout` → `client.logout()` unlinks the device and deletes the stored session, then a fresh client shows a new QR. The selected group is cleared because it belongs to the old account.
+- **Login:** WhatsApp Web shows a QR code. The app turns it into an image and shows it on the **Connection** page. The user scans it from WhatsApp → Linked devices.
+- **Staying logged in:** about a minute after login, the login data is saved to MongoDB, and it is refreshed every 5 minutes. When the server restarts, the login is restored automatically, so **no new QR code is needed** (reconnection takes about 10 seconds). The Connection page shows when the session was last saved.
+- **Invalid login:** if WhatsApp rejects the saved login, it is deleted and a fresh QR code is shown.
+- **Logout:** unlinks the device, deletes the saved login, and clears the selected group.
 
-### Why a custom session store
-
-The usual package, `wwebjs-mongo`, does not work with whatsapp-web.js 1.34: RemoteAuth writes the zip to its `dataPath` (`.wwebjs_auth/`), but `wwebjs-mongo` reads it from the current working directory, so every backup fails and the session never survives a restart. It also does not await deletes. [`whatsapp.sessionStore.js`](../server/src/modules/whatsapp/whatsapp.sessionStore.js) is the same GridFS idea in about 40 lines, with the correct path, `stream.pipeline` error handling, and only the newest backup kept.
+The common package for saving sessions in MongoDB (`wwebjs-mongo`) turned out to be incompatible with the current library version: it looked for the saved file in the wrong folder, so logins were never actually saved. I replaced it with a small, custom session store ([whatsapp.sessionStore.js](../server/src/modules/whatsapp/whatsapp.sessionStore.js)).
 
 ## Listening to one group
 
-- `GET /api/whatsapp/groups` lists the account's groups; the chosen id (`…@g.us`) is saved in `settings` and kept in memory.
-- The listener uses `message_create`, which fires for everyone's messages **and** the linked user's own messages. For own messages `from` is the user and `to` is the group, so `getChatId()` uses `to` when `fromMe`.
-- Group system events (`gp2` "X added Y", `e2e_notification`, `protocol`, …) are ignored. Other non-text/image types (video, voice, documents) are stored as `unsupported` / `skipped`, so nothing disappears silently.
+- The Connection page lists the account's groups. The chosen group is saved, so it survives restarts.
+- Every incoming message is checked: messages from any other chat are ignored.
+- Messages sent by the connected account itself are also captured.
+- System notices such as "X added Y" are ignored. Unsupported types (video, voice notes, documents) are stored as "unsupported", so nothing disappears silently.
 
-## Capture
+## What is captured
 
-Each message is mapped by the pure function `mapMessage()` to: `waMessageId`, `groupId`, `groupName`, `senderId`, `senderName` (push name, falling back to the contact), `timestamp`, `type`, `waType`, `body` (text or caption), `raw` (trimmed payload) and `source` (`live` or `backfill`).
+For each message: **text (or image caption), sender, group, time**, the message type, and a copy of the original data for auditing.
 
-Images: `msg.downloadMedia()` (30 s timeout) → `storage/media/<sha256>.<ext>`. Naming files by content hash stores identical images once. If the download fails, the message is still saved with its caption and `media.error`, and it is still classified; the review rules flag it.
+**Images** are downloaded and stored on disk, named by their content, so the same photo is only stored once. If a download fails, the message is still saved with its caption and marked for review.
 
 ## Duplicates
 
-| Kind | Example | Handling |
+| Type | Example | What happens |
 | --- | --- | --- |
-| Hard | The same message delivered twice, or seen again during backfill | Cheap `exists` check first (to avoid re-downloading images), then `updateOne({ waMessageId }, { $setOnInsert: doc }, { upsert: true })` on a unique index. A concurrent second insert is a no-op, and an `E11000` race is treated as a duplicate. The test sends the same message 3× in parallel and gets 1 document |
-| Soft | The same person posts the same text (ignoring case/spaces) or the same image again within 10 minutes | `contentHash = sha256(senderId + normalized text or image hash)`. Stored and visible with `duplicateOf`, status `skipped`, and **not** sent to the AI again |
+| **Exact duplicate** | WhatsApp delivers the same message twice, or it is seen again after a reconnect | The message's unique id is enforced by the database, so it is only ever stored once, even if both copies arrive at the same moment (covered by a test) |
+| **Repeated post** | The same person sends the same text or photo again within 10 minutes | It is stored and visible, but marked as a duplicate and **not** sent to the AI again |
 
-## Connection failures
+## Handling connection problems
 
-`WhatsAppConnection` ([whatsapp.client.js](../server/src/modules/whatsapp/whatsapp.client.js)) owns the client and exposes one status object: `initializing → qr → authenticated → ready`, or `disconnected` / `error` with `lastError` and `nextRetryAt`. Every change is pushed to the UI and saved to `settings`.
-
-| What happens | Handling |
+| Situation | What the app does |
 | --- | --- |
-| Phone offline, Wi-Fi drop | WhatsApp Web reports `OPENING` / `TIMEOUT` and reconnects itself; we show it (`waState`) |
-| Logged out from phone, session conflict (`disconnected`) | Destroy the client, create a **new** one after backoff → new QR if needed |
-| Chromium fails to launch | `initialize()` error is caught → state `error`, retry with backoff; the API keeps running |
-| Chromium crashes after start | whatsapp-web.js does not notice, so we listen to the browser's `disconnected` event and restart |
-| Invalid stored session | `auth_failure` → delete the session → new QR |
+| Phone offline or internet drops briefly | WhatsApp Web reconnects on its own; the app shows the status |
+| Logged out from the phone, or another session takes over | The app starts a new connection (with a new QR code if needed) |
+| The browser fails to start or crashes | The error is shown and the app retries automatically; the rest of the app keeps working |
+| Saved login is no longer valid | The saved login is deleted and a new QR code is shown |
 
-Backoff is 5 s, 10 s, 20 s … capped at 5 minutes, and resets on `ready`.
+Retries wait longer after each failure: 5 seconds, 10, 20, and so on, up to 5 minutes. This avoids hammering WhatsApp when something is wrong.
 
-**Generation guard:** every client gets a generation number. After a restart, late events from the old, dying client (e.g. a second `disconnected` or a late `ready`) are ignored. Without this, one failure could trigger two restarts, or an old client could overwrite the new client's state. This is covered by a unit test with a fake client.
+**Recovering missed messages:** every time the connection comes back, the app reads the **last 50 messages** of the group. Any that were sent while the app was offline are saved; ones already stored are skipped.
 
-**Backfill:** on every `ready`, the last `WA_BACKFILL_LIMIT` (50) messages of the selected group are fetched and passed through the same listener. Already-stored ones are skipped by the unique id, so messages sent while the server was down are recovered and repeating it is harmless.
+## Issues found while testing with a real account
 
-**Graceful shutdown:** SIGINT/SIGTERM → stop the AI worker (finish in-flight jobs) → destroy the WhatsApp client → close sockets → close MongoDB.
+Because whatsapp-web.js is unofficial and depends on WhatsApp Web's internals, I tested against a real account and group, not only with automated tests. This uncovered four problems, all fixed:
 
-## Library issues found on real data, and the fixes
+1. **Group list failed on a large account.** The library's method loads full details for every chat at once, and one unusual chat broke the whole list. The app now reads only the name and id of each group, which is both faster (145 groups in about 30 ms) and no longer breaks on one bad chat.
+2. **Recovering missed messages used the same fragile method.** Replaced in the same way.
+3. **Messages were being silently dropped.** With WhatsApp's newer user ids, the library lost the message id. The first message was saved without an id, and every later message then looked like a duplicate of it. The app now builds its own reliable id and refuses to save a message without one. After the fix, the missed messages were recovered automatically on reconnect.
+4. **Image downloads failed** for the same reason. The missing id is now restored before downloading.
 
-The library is unofficial and depends on WhatsApp Web internals, so the integration was tested against a real account and group, not only with unit tests. Four problems were found and fixed:
-
-1. **`client.getChats()` failed** on a real account with 145 groups: it serializes every chat and fetches each group's participants inside one `Promise.all`, so one unusual chat breaks the whole list. `getGroups()` now reads only id/name/size from WhatsApp Web's in-memory chat list, with a try/catch per chat (145 groups in about 30 ms).
-2. **Backfill used `client.getChatById()`**, which goes through the same fragile serializer. `fetchRecentMessages()` does the same steps as `Chat.fetchMessages()` without it.
-3. **`msg.id._serialized` was `null`** for messages with WhatsApp's newer LID user ids; the library rebuilds the id object and loses it. The first such message was stored with a null id, and because of the unique index **every later message was treated as a duplicate and dropped**. `waMessageId` is now built from parts that are always present (`<chatId>_<message id>`, identical for live and backfill), and a message without a usable id is refused. After the fix, the backfill recovered the 6 dropped messages.
-4. **Image downloads failed** with a minified error (`"r"`) for the same reason: `downloadMedia()` looks the message up by `_serialized`. We now restore it in WhatsApp's own key format before downloading.
-
-Fixes 3 and 4 have regression tests (`whatsapp.mapper.test.js`, `dedupe.test.js`). Fixes 1 and 2 run inside the WhatsApp Web page, so they were verified against the live account rather than with unit tests.
+Fixes 3 and 4 are covered by automated tests. Fixes 1 and 2 run inside the WhatsApp Web page, so they were verified on the real account.

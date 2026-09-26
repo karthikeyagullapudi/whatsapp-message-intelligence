@@ -1,125 +1,106 @@
 # Architecture
 
-## Three separate responsibilities
+The system is split into three parts that each do one job. They never call each other directly; they only share the MongoDB database.
 
-| Part | Job | Never does |
+| Part | What it does | What it never does |
 | --- | --- | --- |
-| **Ingest** (`modules/whatsapp`) | Keep the WhatsApp Web connection alive, filter the selected group, save each message once | Call the AI |
-| **Process** (`modules/ai`) | Take saved messages from the queue, classify, validate, decide if a person must review | Talk to WhatsApp |
-| **Review** (`modules/messages`, `modules/review`, `client`) | Show messages, let a person correct and approve | Change the original message or the AI's answer |
+| **WhatsApp listener** | Keeps the WhatsApp Web connection alive and saves every message from the selected group, once | Call the AI |
+| **AI worker** | Picks up saved messages, classifies them with Gemini, checks the result, and decides if a person should review it | Talk to WhatsApp |
+| **API and web app** | Shows the messages and lets a person correct and approve the AI's result | Change the original message or the AI's answer |
 
-The listener only writes to MongoDB, so a slow, rate-limited or broken model can never cause a message to be lost: messages simply wait as `pending`.
+I split it this way mainly so that no message can be lost because of the AI. The listener only saves; if Gemini is slow, rate-limited or down, messages simply wait in the database until the worker catches up.
 
-For the demo, all three run in one Node process (`server.js`). They only share MongoDB, so they could run as separate processes without code changes.
+All three parts currently run in one Node.js process for simplicity. Because they only communicate through the database, they can be moved into separate services later without rewriting them.
 
 ```mermaid
 flowchart LR
-  subgraph Ingest
-    WA[WhatsApp Web<br/>headless Chromium] --> C[WhatsAppConnection<br/>state, reconnect]
-    C --> L[Listener<br/>group filter, dedupe, image download]
+  subgraph Listener
+    WA[WhatsApp Web] --> L[Filter group<br/>remove duplicates<br/>download images]
   end
   L --> DB[(MongoDB)]
-  subgraph Process
-    W[AI worker] --> P[Gemini provider]
-    P --> V[Validator + review rules]
+  subgraph Worker
+    W[AI worker] --> G[Gemini]
+    G --> V[Check result<br/>+ review rules]
   end
   DB <--> W
   V --> DB
-  subgraph Review
-    API[Express API] --> UI[React UI]
-    S[Socket.IO] --> UI
+  subgraph App
+    API[Express API] --> UI[React app]
+    S[Live updates] --> UI
   end
   DB <--> API
 ```
 
-## Message lifecycle
+## The journey of one message
 
-`processing.status` on each message is both its state and the job queue.
+1. Someone posts in the WhatsApp group.
+2. The **listener** checks that it comes from the selected group and has not been saved before, downloads the image if there is one, and saves the message as **pending**.
+3. The **AI worker** picks up the oldest pending message, sends it to Gemini with clear instructions, and checks the answer.
+4. The result is saved. If the AI is confident and the message is low-risk, it is **auto-approved**. Otherwise it goes to **needs review**.
+5. The web app updates immediately. A reviewer opens the Inbox, corrects anything that is wrong, and approves it.
+
+Every message has a status that shows where it is:
 
 ```mermaid
 stateDiagram-v2
-  [*] --> pending: saved by listener
-  [*] --> skipped: unsupported type / soft duplicate
-  pending --> processing: worker claims (atomic)
-  processing --> auto_approved: valid, confident, low impact
-  processing --> needs_review: any review reason
-  processing --> pending: temporary error (429, 5xx, timeout), backoff
-  processing --> failed: permanent error or max attempts
-  processing --> pending: stuck > 2 min (crash recovery)
+  [*] --> pending: saved
+  [*] --> skipped: duplicate or unsupported type
+  pending --> processing: worker picks it up
+  processing --> auto_approved: confident and low-risk
+  processing --> needs_review: uncertain or important
+  processing --> pending: temporary AI error, try again later
+  processing --> failed: AI kept failing
   failed --> pending: user clicks Retry
   needs_review --> approved: user approves
-  auto_approved --> approved: user edits
-  failed --> approved: user classifies by hand
 ```
 
-## Request flow for one message
+## How data is stored
 
-1. `message_create` fires in whatsapp-web.js. `WhatsAppConnection` re-emits it only if it comes from the current client generation.
-2. `listener.handle()` drops it unless it is from the selected group, then checks `waMessageId` (hard duplicate), maps it with the pure `whatsapp.mapper.js`, downloads an image to `storage/media/<sha256>.<ext>`, checks the 10-minute content hash (soft duplicate), and inserts it atomically.
-3. The UI receives `message:new` over Socket.IO.
-4. The AI worker (polling every 2 s, 2 slots, max 10 requests/min) claims the oldest due `pending` message with one `findOneAndUpdate`.
-5. It builds the prompt (system prompt + 8 examples + message + image bytes), calls Gemini with the JSON schema, validates the output, repairs once if needed, and applies the review rules.
-6. It saves `ai` and the new status, and the UI receives `message:updated`.
-7. A reviewer sends `PATCH /api/messages/:id/review`. The `review` block is saved next to `ai` with `changedFields`, and the status becomes `approved`.
+Each message is one document in MongoDB. It keeps three things **side by side**, so nothing is ever overwritten:
 
-## Data model
+- **The original message:** text or caption, sender, group, time and image. Never edited.
+- **The AI's answer:** category, summary, extracted details, confidence, and the reasons it needs review.
+- **The human's correction:** the reviewer's final values and a list of which fields they changed.
 
-One main collection, `messages`. The original message, the AI result and the human correction are separate sub-documents, so nothing is overwritten and AI accuracy can be measured later (`review.changedFields`).
+Keeping the AI's answer and the human's answer separate means we can always see what the AI got wrong, and measure its accuracy over time.
 
-```js
-{
-  waMessageId,            // "<chatId>_<WhatsApp message id>", unique
-  groupId, groupName, senderId, senderName, fromMe,
-  timestamp,              // when it was sent on WhatsApp
-  type,                   // text | image | unsupported
-  waType,                 // WhatsApp's own type (chat, image, video, ptt, …)
-  body,                   // original text or caption, never edited
-  media: { path, mimetype, size, sha256, error },
-  raw,                    // trimmed original payload
-  source,                 // live | backfill
-  contentHash, duplicateOf,
-  processing: { status, skipReason, attempts, lastError, lockedAt, nextRunAt },
-  ai:     { category, confidence, summary, priority, actionRequired, entities, reasoning,
-            model, provider, promptVersion, latencyMs, repaired, warnings,
-            validationErrors, reviewReasons, rawOutput?, processedAt },
-  review: { category, summary, priority, actionRequired, entities, notes,
-            reviewedBy, reviewedAt, changedFields }
-}
-```
+The database also holds a small settings record (the selected group and connection status) and the saved WhatsApp login.
 
-| Index | Used for |
+**Indexes** (to keep things fast and correct):
+
+| Index | Purpose |
 | --- | --- |
-| `{ waMessageId: 1 }` unique | Hard dedupe |
-| `{ 'processing.status': 1, 'processing.nextRunAt': 1 }` | Worker claims the next due job |
-| `{ groupId: 1, timestamp: -1 }` | Message list |
-| `{ contentHash: 1, timestamp: -1 }` | Soft-duplicate lookup |
-
-Other collections: `settings` (one document: selected group, last WhatsApp state, confidence threshold) and `whatsapp-RemoteAuth-main.files/chunks` (the zipped WhatsApp session in GridFS).
+| Unique WhatsApp message id | Makes it impossible to store the same message twice |
+| Status + next attempt time | Lets the worker find the next message quickly |
+| Group + time | Fast message lists, newest first |
+| Content fingerprint + time | Finds "same message posted again" quickly |
 
 ## API
 
-All errors use one shape: `{ "error": { "code", "message", "details?" } }`. URL params and query filters are validated with **express-validator**. Structured bodies (the review) are validated with **zod** schemas that share their pieces with the AI schema.
+The web app talks to the server through a small REST API. Every input is validated, and every error comes back in the same format: `{ "error": { "code", "message" } }`.
 
-| Method | Path | Does |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/health` | DB, WhatsApp state, AI worker status |
-| GET | `/api/whatsapp/status` | Connection state, QR (data URL), account, selected group, last error, next retry |
-| GET | `/api/whatsapp/groups` | Groups of the linked account |
-| PUT | `/api/whatsapp/group` | Select the group to listen to (`{ groupId }`) |
-| POST | `/api/whatsapp/logout` | Unlink the device, delete the stored session, show a new QR |
-| GET | `/api/messages` | `groupId`, `status`, `category` (final: review over AI), `q`, `page`, `limit`, `sort`. The UI always passes the selected group, so after a logout or group change the previous group's messages are not shown (they stay in the database) |
-| GET | `/api/messages/stats` | Count per status (optional `groupId`) |
-| GET | `/api/messages/:id` | One message with AI and review data |
-| GET | `/api/messages/:id/media` | The stored image |
-| PATCH | `/api/messages/:id/review` | Save corrections and approve (400 invalid, 404 unknown, 409 not reviewable) |
-| POST | `/api/messages/:id/retry` | Re-queue a failed message |
+| GET | `/api/health` | Is the database, WhatsApp and the AI worker running? |
+| GET | `/api/whatsapp/status` | Connection status, including the QR code when needed |
+| GET | `/api/whatsapp/groups` | Groups the account belongs to |
+| PUT | `/api/whatsapp/group` | Choose the group to listen to |
+| POST | `/api/whatsapp/logout` | Unlink the account |
+| GET | `/api/messages` | List messages, with filters (group, status, category, search) |
+| GET | `/api/messages/stats` | Number of messages in each status |
+| GET | `/api/messages/:id` | One message with its AI result and review |
+| GET | `/api/messages/:id/media` | The message's image |
+| PATCH | `/api/messages/:id/review` | Save a correction and approve |
+| POST | `/api/messages/:id/retry` | Try a failed message again |
 
-Socket.IO events (server → browser): `wa:state` (full connection status, including the QR), `message:new`, `message:updated`. A browser that connects late gets the current `wa:state` immediately.
+The web app also receives **live updates** (via Socket.IO) when the connection status changes, a new message arrives, or a message is updated. It only shows messages from the currently selected group. After a logout or a group change, older messages stay in the database but are hidden.
 
 ## Key design decisions
 
-- **MongoDB as the queue instead of Redis/BullMQ.** One group produces little traffic; one database means one `docker compose up`. `findOneAndUpdate` gives atomic claiming. BullMQ is the upgrade path (see limitations).
-- **Dependency injection from `server.js`.** Every module receives its collaborators, so tests pass fakes (a fake WhatsApp client, a fake AI provider) instead of mocking imports.
-- **`app.js` does not call `listen()`**, so supertest can drive the real app in tests.
-- **Express 5** forwards rejected promises to the error handler, so controllers need no try/catch.
-- **Optimistic state guards.** Every job and review update includes the expected current status in its filter, so the worker and a reviewer can never overwrite each other.
+I used MongoDB as the job queue instead of adding Redis. One group produces very little traffic, and keeping a single database means the whole project starts with one `docker compose up`. The worker claims a message in a single database operation, so two workers can never pick up the same message. If volume grew, moving to a proper queue such as BullMQ would be the next step.
+
+Inside the server, each layer has one job: routes map URLs, controllers deal with HTTP, services hold the business rules, and only the repository talks to the database. This keeps changes contained: changing how the Retry button behaves, for example, only touches one service file.
+
+All the parts are created and connected in one file, `server.js`. That made testing much simpler: the tests pass in a fake WhatsApp client or a fake AI instead of the real ones.
+
+Finally, every update checks the message's current status before writing. Without that, a reviewer approving a message at the same moment the AI worker finishes it could overwrite each other's work.
