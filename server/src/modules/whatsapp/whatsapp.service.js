@@ -75,8 +75,6 @@ export function createWhatsAppService({ connection, listener, Settings, emit = (
 
     getStatus,
     getState: () => connection.getState(),
-    getSelectedGroup: () => selectedGroup,
-    backfill,
 
     async listGroups() {
       requireReady();
