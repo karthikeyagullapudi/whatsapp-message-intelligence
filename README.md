@@ -87,7 +87,6 @@ Each module is split into **routes → controller → service → repository/mod
 - [WhatsApp integration](docs/WHATSAPP_INTEGRATION.md): why whatsapp-web.js, sessions, reconnects, dedupe, and the library issues found and worked around
 - [AI approach and model choice](docs/AI_APPROACH.md): model comparison, schema, prompt, validation, review rules, eval results
 - [Limitations and production risks](docs/LIMITATIONS_AND_RISKS.md)
-- [Interview guide](docs/interview-guide.html): one self-contained page (open it in a browser) with the full walkthrough, a "where is what" finder, change drills and practice questions
 
 ## Configuration
 
